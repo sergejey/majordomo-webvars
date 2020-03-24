@@ -1,0 +1,2 @@
+# majordomo-webvars
+WebVars module
