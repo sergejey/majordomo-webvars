@@ -213,140 +213,135 @@ function usual(&$out) {
 * @access public
 */
  function checkAllVars($force=0) {
-
-  // ping hosts
-  if ($force) {
-   $pings=SQLSelect("SELECT * FROM webvars WHERE 1");
-  } else {
-   $pings=SQLSelect("SELECT * FROM webvars WHERE CHECK_NEXT<=NOW()");
-  }
+	if ($force) {
+		$pings=SQLSelect("SELECT * FROM webvars WHERE 1");
+	} else {
+		$pings=SQLSelect("SELECT * FROM webvars WHERE CHECK_NEXT<=NOW()");
+	}
   
-  $total=count($pings);
-  for($i=0;$i<$total;$i++) {
-   $host=$pings[$i];
-   if (!$force) {
-    echo date('H:i:s')." Checking webvar: ".processTitle($host['HOSTNAME'])."\n";
-   }
-   if (!$host['HOSTNAME']) {
-    continue;
-   }
+	$total=count($pings);
+	for($i=0;$i<$total;$i++) {
+		$host=$pings[$i];
+		if (!$force) {
+			echo date('H:i:s')." Checking webvar: ".processTitle($host['HOSTNAME'])."\n";
+		}
+		if (!$host['HOSTNAME']) continue;
 
-   $online_interval=$host['ONLINE_INTERVAL'];
-   if (!$online_interval) {
-    $online_interval=60;
-   }
-   $host['CHECK_NEXT']=date('Y-m-d H:i:s', time()+$online_interval);
-   SQLUpdate('webvars', $host);
+		$online_interval=$host['ONLINE_INTERVAL'];
+		if (!$online_interval) $online_interval=60;
+		
+		$host['CHECK_NEXT'] = date('Y-m-d H:i:s', time()+$online_interval);
+		SQLUpdate('webvars', $host);
 
-   // checking
+		$old_status = $host['LATEST_VALUE'];
+		if ($host['AUTH'] && $host['USERNAME']) {
+			$content=getURL(processTitle($host['HOSTNAME']), $host['ONLINE_INTERVAL'], $host['USERNAME'], $host['PASSWORD']);
+		} else {
+			$content=getURL(processTitle($host['HOSTNAME']), $host['ONLINE_INTERVAL']);
+		}
 
-   //web host
-   $old_status=$host['LATEST_VALUE'];
-   if ($host['AUTH'] && $host['USERNAME']) {
-    $content=getURL(processTitle($host['HOSTNAME']), $host['ONLINE_INTERVAL'], $host['USERNAME'], $host['PASSWORD']);
-   } else {
-    $content=getURL(processTitle($host['HOSTNAME']), $host['ONLINE_INTERVAL']);
-   }
+		if ($host['ENCODING']!='') {
+			$content=iconv($host['ENCODING'], "UTF-8", $content);
+		}
 
-   if ($host['ENCODING']!='') {
-    $content=iconv($host['ENCODING'], "UTF-8", $content);
-   }
+		$ok=1;
+		$new_status='';
+		if ($host['SEARCH_PATTERN']) {
+			if (preg_match('/'.$host['SEARCH_PATTERN'].'/is', $content, $m)) {
+				$total1=count($m);
+				for($i1=1;$i1<$total1;$i1++) {
+					$new_status.=$m[$i1];
+				}
+			} else {
+				$ok=0;
+			}
+		} else {
+			$new_status = $content;
+		}
+		
+		if($host['DELHTML'] == 1) {
+			$new_status = html_entity_decode(strip_tags($new_status));
+		}
+		
+		
+		if ($host['CHECK_PATTERN'] && !preg_match('/'.$host['CHECK_PATTERN'].'/is', $new_status)) {
+			$ok=0; 
+		}
 
-   $ok=1;
-   $new_status='';
-   if ($host['SEARCH_PATTERN']) {
-    if (preg_match('/'.$host['SEARCH_PATTERN'].'/is', $content, $m)) {
-     //$new_status=$m[1];
-     $total1=count($m);
-     for($i1=1;$i1<$total1;$i1++) {
-      $new_status.=$m[$i1];
-     }
-    } else {
-     $ok=0; // result did not matched
-    }
-   } else {
-    $new_status=$content;
-   }
+		if (strlen($new_status)>50*1024) {
+			$new_status=substr($new_status, 0, 50*1024);
+		}
 
-   if ($host['CHECK_PATTERN'] && !preg_match('/'.$host['CHECK_PATTERN'].'/is', $new_status)) {
-    $ok=0; // result did not pass the check
-   }
-
-   if (strlen($new_status)>50*1024) {
-    $new_status=substr($new_status, 0, 50*1024);
-   }
-   
-   if (!$ok) {
-    $host['LOG']=date('Y-m-d H:i:s').' incorrect value:'.$new_status."\n".$host['LOG'];
-    $tmp=explode("\n", $host['LOG']);
-    $total=count($tmp);
-    if ($total>50) {
-     $tmp=array_slice($tmp, 0, 50);
-     $host['LOG']=implode("\n", $tmp);
-    }
-    SQLUpdate('webvars', $host);
-    continue;
-   }
-
-
-   $host['CHECK_LATEST']=date('Y-m-d H:i:s');
-   $host['CHECK_NEXT']=date('Y-m-d H:i:s', time()+$online_interval);
-
-   if ($old_status!=$new_status) {
-     $host['LOG']=date('Y-m-d H:i:s').' new value:'.$new_status."\n".$host['LOG'];
-     $tmp=explode("\n", $host['LOG']);
-     $total=count($tmp);
-     if ($total>50) {
-      $tmp=array_slice($tmp, 0, 50);
-      $host['LOG']=implode("\n", $tmp);
-     }
-   }
-
-   $host['LATEST_VALUE']=$new_status;
-   SQLUpdate('webvars', $host);
-
-   if ($host['LINKED_OBJECT']!='' && $host['LINKED_PROPERTY']!='') {
-    setGlobal($host['LINKED_OBJECT'].'.'.$host['LINKED_PROPERTY'],$new_status);
-   }
-
-   if ($old_status!=$new_status && $old_status!='') {
-
-    $params=array('VALUE'=>$new_status);
-    // do some status change actions
-    $run_script_id=0;
-    $run_code='';
-     // got online
-     if ($host['SCRIPT_ID']) {
-      $run_script_id=$host['SCRIPT_ID'];
-     } elseif ($host['CODE']) {
-      $run_code=$host['CODE'];
-     }
-
-    if ($run_script_id) {
-     //run script
-     runScriptSafe($run_script_id, $params);
-    } elseif ($run_code) {
-     //run code
-                  try {
-                   $code=$run_code;
-                   $success=eval($code);
-                   if ($success===false) {
-                    DebMes("Error in webvar code: ".$code);
-                    registerError('webvars', "Error in webvar code: ".$code);
-                   }
-                  } catch(Exception $e){
-                   DebMes('Error: exception '.get_class($e).', '.$e->getMessage().'.');
-                   registerError('webvars', get_class($e).', '.$e->getMessage());
-                  }
-
-    }
-
-   }
-   
-
-  } 
+		if (!$ok) {
+			$host['LOG'] = date('Y-m-d H:i:s').' → INCORRECT VALUE: 
+'.$new_status."\n".$host['LOG'];
+			$tmp=explode("\n", $host['LOG']);
+			$total=count($tmp);
+			if ($total>50) {
+				$tmp=array_slice($tmp, 0, 50);
+				if($host['DELHTML'] == 1) $tmp = strip_tags($tmp);
+				$host['LOG'] = implode("\n", $tmp);
+			}
+			
+			SQLUpdate('webvars', $host);
+			continue;
+		}
 
 
+		$host['CHECK_LATEST']=date('Y-m-d H:i:s');
+		$host['CHECK_NEXT']=date('Y-m-d H:i:s', time()+$online_interval);
+
+		if ($old_status!=$new_status) {
+			$host['LOG'] = date('Y-m-d H:i:s').' → NEW VALUE: 
+'.$new_status."\n".$host['LOG'];
+			$tmp=explode("\n", $host['LOG']);
+			$total=count($tmp);
+			if ($total>50) {
+				$tmp=array_slice($tmp, 0, 50);
+				$host['LOG'] = implode("\n", $tmp);
+			}
+		}
+
+		$host['LATEST_VALUE'] = $new_status;
+		SQLUpdate('webvars', $host);
+
+		if ($host['LINKED_OBJECT']!='' && $host['LINKED_PROPERTY']!='') {
+			setGlobal($host['LINKED_OBJECT'].'.'.$host['LINKED_PROPERTY'],$new_status);
+		}
+
+		if ($old_status!=$new_status && $old_status!='') {
+
+			$params=array('VALUE'=>$new_status);
+			// do some status change actions
+			$run_script_id=0;
+			$run_code='';
+			 // got online
+			 if ($host['SCRIPT_ID']) {
+			  $run_script_id=$host['SCRIPT_ID'];
+			 } elseif ($host['CODE']) {
+			  $run_code=$host['CODE'];
+			 }
+
+			if ($run_script_id) {
+			 //run script
+			 runScriptSafe($run_script_id, $params);
+			} elseif ($run_code) {
+			 //run code
+				  try {
+				   $code=$run_code;
+				   $success=eval($code);
+				   if ($success===false) {
+					DebMes("Error in webvar code: ".$code);
+					registerError('webvars', "Error in webvar code: ".$code);
+				   }
+				  } catch(Exception $e){
+				   DebMes('Error: exception '.get_class($e).', '.$e->getMessage().'.');
+				   registerError('webvars', get_class($e).', '.$e->getMessage());
+				  }
+
+			}
+		}
+	} 
  }
 
 /**
@@ -387,6 +382,7 @@ webvars - webvars
  webvars: HOSTNAME varchar(255) NOT NULL DEFAULT ''
  webvars: TYPE int(30) NOT NULL DEFAULT '0'
  webvars: SEARCH_PATTERN varchar(255) NOT NULL DEFAULT ''
+ webvars: DELHTML int(3) NOT NULL DEFAULT '0'
  webvars: CHECK_PATTERN varchar(255) NOT NULL DEFAULT ''
  webvars: LATEST_VALUE text
  webvars: CHECK_LATEST datetime
