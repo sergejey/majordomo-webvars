@@ -24,7 +24,7 @@
 		[#begin RESULT#]
 		<div class="panel panel-default">
 			<div class="panel-heading">
-				<div style="float: left"><h3 class="panel-title">[#if TITLE!=""#]<b>[#TITLE#]</b>[#endif#] <span style="color: lightgray">→ <a href="[#HOSTNAME#]" target="_blank" style="color: lightgray; text-decoration:none;">[#HOSTNAME#]</a></span></h3></div>
+				<div style="float: left"><h3 class="panel-title">[#if TITLE!=""#]<a href="?view_mode=edit_webvars&id=[#ID#]"><b>[#TITLE#]</b></a>[#endif#] <span style="color: lightgray">→ <a href="[#HOSTNAME#]" target="_blank" style="color: lightgray; text-decoration:none;">[#HOSTNAME#]</a></span></h3></div>
 				<div style="float: right">
 					[#if "<#ACTION#>"=="admin"#]
 					<div class="btn-group btn-group-xs">
