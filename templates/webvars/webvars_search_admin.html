@@ -24,7 +24,7 @@
 		[#begin RESULT#]
 		<div class="panel panel-default">
 			<div class="panel-heading">
-				<div style="float: left"><h3 class="panel-title">[#if TITLE!=""#]<b>[#TITLE#]</b>[#endif#] <span style="color: lightgray">→ <a href="[#HOSTNAME#]" target="_blank" style="color: lightgray; text-decoration:none;">[#HOSTNAME#]</a></span></h3></div>
+				<div style="float: left"><h3 class="panel-title">[#if TITLE!=""#]<a href="?view_mode=edit_webvars&id=[#ID#]"><b>[#TITLE#]</b></a>[#endif#] <span style="color: lightgray">→ <a href="[#HOSTNAME#]" target="_blank" style="color: lightgray; text-decoration:none;">[#HOSTNAME#]</a></span></h3></div>
 				<div style="float: right">
 					[#if "<#ACTION#>"=="admin"#]
 					<div class="btn-group btn-group-xs">
@@ -40,7 +40,7 @@
 					[#if CHECK_LATEST != ''#]<p style="color: gray;font-size: 1.2rem;margin: 0px;">↳ <span class="label label-success" style="margin-bottom: 5px;">[#CHECK_LATEST#]</span></p>[#endif#]
 					[#if LINKED_OBJECT != '' && LINKED_PROPERTY != ''#]<p style="color: gray;font-size: 1.2rem;margin: 0px;">↳ <span class="label label-primary" style="margin-bottom: 5px;">[#LINKED_OBJECT#].[#LINKED_PROPERTY#]</span></p>[#endif#]
 				</div>
-				<pre>[#LATEST_VALUE#]</pre>
+				<pre style="height: 40px;overflow-y: auto;resize: vertical;min-height: 40px;">[#LATEST_VALUE#]</pre>
 			</div>
 		</div>
 		[#end RESULT#]
