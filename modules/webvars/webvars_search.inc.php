@@ -24,19 +24,6 @@
   }
   if (!$qry) $qry="1";
   // FIELDS ORDER
-  global $sortby;
-  if (!$sortby) {
-   $sortby=$session->data['webvars_sort'];
-  } else {
-   if ($session->data['webvars_sort']==$sortby) {
-    if (Is_Integer(strpos($sortby, ' DESC'))) {
-     $sortby=str_replace(' DESC', '', $sortby);
-    } else {
-     $sortby=$sortby." DESC";
-    }
-   }
-   $session->data['webvars_sort']=$sortby;
-  }
   $sortby="ID DESC";
   $out['SORTBY']=$sortby;
   // SEARCH RESULTS
